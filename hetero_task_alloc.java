@@ -5,6 +5,9 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
 import java.util.*;
+
+import javax.jws.Oneway;
+
 import lpsolve.*;
 
 public class hetero_task_alloc{
@@ -21,7 +24,8 @@ public class hetero_task_alloc{
 	private static double initialVal=0;
 	private static double finalValue=0;
 	private static int width;
-
+	public static int types;// number of robot types
+	public static ArrayList<Integer> currentDistribution; 
 	/*integer partitioning code goes here*/
 	static void storepartitions(int[] p, int n, int t)
 	{
@@ -90,7 +94,80 @@ public class hetero_task_alloc{
 			k++;
 		}
 	}
+	
+	static int storepartitions_hetero(int[] p, int n, int t)
+	{
+		//for (int i = 0; i < p.length; i++)
+		//System.out.println(p[i]);
+		int done = 0;
+		ArrayList<Integer> onePart = new ArrayList<Integer>();// (p);//, p + n);
+		if (n <= types) {
+			for (int i = 0; i < t; i++){
+				//System.out.println(p[i]);
+				onePart.add(p[i]);
+			}
+			//onePart =  onePart.subList(0, t-1);
+			//System.out.println(onePart.get(0));
+			//intPartitions.add(onePart);
+			//onePart.clear();
+			currentDistribution.clear();
+			currentDistribution = onePart;
+			done = 1;
+		}
+		
+		return done;
+		
+	}
 
+	static void FindAllUniqueParts_hetero(int a, int t)
+	{
+		final int n = a;
+		int[] p = new int[n]; // An array to store a partition
+		int k = 0;  // Index of last element in a partition
+		p[k] = n;  // Initialize first partition as number itself
+
+		// This loop first prints current partition, then generates next
+		// partition. The loop stops when the current partition has all 1s
+		while (true)
+		{
+			// store the current partition
+			if (t == k + 1) { if(storepartitions_hetero(p, k + 1, t)==1) {return;} }
+
+			// Generate next partition
+
+			// Find the rightmost non-one value in p[]. Also, update the
+			// rem_val so that we know how much value can be accommodated
+			int rem_val = 0;
+			while (k >= 0 && p[k] == 1)
+			{
+				rem_val += p[k];
+				k--;
+			}
+
+			// if k < 0, all the values are 1 so there are no more partitions
+			if (k < 0)  return;
+
+			// Decrease the p[k] found above and adjust the rem_val
+			p[k]--;
+			rem_val++;
+
+
+			// If rem_val is more, then the sorted order is violated.  Divide
+			// rem_val in different values of size p[k] and copy these values at
+			// different positions after p[k]
+			while (rem_val > p[k])
+			{
+				p[k + 1] = p[k];
+				rem_val = rem_val - p[k];
+				k++;
+			}
+
+			// Copy rem_val to next position and increment position
+			p[k + 1] = rem_val;
+			k++;
+		}
+	}
+	
 	static void displayAssignment(int[][] assign, int k) {
 		for (int p = 0; p < (assign.length); p++) {
 			System.out.println("Robot ID " + assign[p][0]+" is assigned to Task ID " + assign[p][1]);
@@ -846,12 +923,28 @@ public class hetero_task_alloc{
         writer.println(agents + "\t" + tasks + "\t" + run + "\t" + timePassed + "\t" + optimalValue + "\t" + optimalValue + "\t" + -1 + "\t" + minCost + "\t" + -1 + "\t" + maxCoalSize);
 		System.out.println("Brute-Force method --> Done with this set: Agents= " +agents + " Tasks= "+tasks+ " Run= "+run + " and O_i set: " + optimalMemberSize.toString() );
 	}
+	public static ArrayList<Integer> generate_distribution(task[] sortedT) {
+		for(int i=0;i<sortedT.length; i++) {
+			FindAllUniqueParts_hetero(sortedT[i].optimal, types);
+			Integer d[] = currentDistribution.toArray(new Integer[types]);
+			copyArray(d, sortedT[i].distribution);
+		}		
+		return null;
+	}
 	
+	private static void copyArray(Integer[] from, Integer[] to) {
+		// TODO Auto-generated method stub
+		for(int i=0;i<from.length; i++) {//assuming that the length of TO is >= length of FROM
+			to[i] = from[i];
+		}
+	}
+
 	//main() method
 	public static void main(String args[])
 	{
 		//srand(NULL);
 		width = 100;
+		types = 2;
 		for(int agents = 10; agents <=100; agents+=10) {// number of robots are varied here
 			for(int tasks = 2; tasks <=0.5*agents && tasks <= 10 ; tasks+=2) {// number of tasks are varied here
 				//int tasks = 2;
@@ -871,6 +964,7 @@ public class hetero_task_alloc{
 					Coordinates = new int[n][2];
 					intPartitions = new ArrayList<ArrayList<Integer>>();
 					costPartitions = new ArrayList<ArrayList<Integer>>();
+					currentDistribution = new ArrayList<Integer>();
 					currentAssignmentStat = new int[n][2];
 					optimalValue=0;
 					initialCost=0;
@@ -909,6 +1003,7 @@ public class hetero_task_alloc{
 							sortedT[c].optimal = optimalMemberSize.get(c);
 							if(maxCoalSize < sortedT[c].optimal) maxCoalSize = sortedT[c].optimal;
 						}
+						currentDistribution = generate_distribution(sortedT);//generate ideal robot distribution for each task
 						optimalValue = calculateOptimalValue(optimalMemberSize);
 						startTime = System.currentTimeMillis();
 
