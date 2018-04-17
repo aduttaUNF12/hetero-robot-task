@@ -217,6 +217,117 @@ public class hetero_task_alloc{
 		return;// do ctrl+F5 to see your result.
 
 	}
+	
+	//extract LP output partition from the text/csv file
+		@SuppressWarnings("unchecked")
+		static void extractLPPartitions_bipart(int agent, int task, String Filename) {
+			int i, j, n, count;
+			n = agent + task;
+			double[][] AgentRelationship = new double[n][n];//(n, vector<int>(n));
+			double[] AgentPartition = new double[n];
+
+			for (i = 0; i < n; i++)
+			{
+				AgentPartition[i] = i;
+			}
+
+			try
+			{
+				FileInputStream fs= new FileInputStream(Filename);
+				BufferedReader read = new BufferedReader(new InputStreamReader(fs));
+				for (int lineno = 0; lineno < 2; lineno++)
+				{
+					//read.hasNext();
+					read.readLine();
+					// do nothing here -- ignore first 2 lines
+				}
+				
+				for (i = 0; i < task; i++)
+				{
+					for (j = task; j < n; j++)
+					{
+						String line = read.readLine();
+						line = line.substring(line.length()-1);
+						//System.out.println("a01 is --> "+line);
+						AgentRelationship[i][j] = Double.parseDouble(line);//(a01);
+						if (AgentRelationship[i][j] == 0)
+						{
+							AgentPartition[j] = AgentPartition[i];
+						}
+						/*
+						else if (AgentRelationship[i][j] > 0 && AgentRelationship[i][j] < 1)
+						{
+							AgentPartition[j] = 0.5;
+						}
+						*/
+					}
+
+				}
+				read.close();
+			}
+			catch (Exception e)
+			{
+				System.err.format("Exception occurred trying to read '%s'.", Filename);
+				e.printStackTrace();
+				return;
+			}
+
+			count = 0;
+			
+			ArrayList<Integer> cluster = new ArrayList<Integer>();
+			//ArrayList<Integer> notAssigned_cluster = new ArrayList<Integer>();
+			
+			for (i = 0; i < n; i++)
+			{
+				for (j = 0; j < n; j++)
+				{
+					if (AgentPartition[j] == i)
+					{
+						cluster.add(j);
+						count = 1;
+					}
+					//if(AgentRelationship[i][j] > 0 && AgentRelationship[i][j] < 1 && AgentPartition[j]!= i)
+						//notAssigned_cluster.add(j);
+					
+					if (j == n - 1 && count == 1) {
+						//System.out.println(cluster.clone());
+						costPartitions.add((ArrayList<Integer>) cluster.clone());
+						cluster.clear();
+					}
+				}
+				count = 0;
+			}
+			//costPartitions.add((ArrayList<Integer>) notAssigned_cluster.clone());
+			//notAssigned_cluster.clear();
+			/*
+			int k;
+			for(k=costPartitions.size()-1; k>=0; k--) {
+				if(costPartitions.get(k).get(0)>=task) {
+					notAssigned_cluster.addAll(costPartitions.get(k));
+				}			
+				else
+					break;
+			}
+			k++;
+			while(k<costPartitions.size()) {
+				costPartitions.remove(k);
+			}
+			*/
+			/*
+			for (i = 0; i < n; i++)
+			{
+				if (AgentPartition[i] == 0.5)
+				{
+					notAssigned_cluster
+				}
+				
+			}
+			*/
+
+			//displayCurrentPartition();
+			return;// do ctrl+F5 to see your result.
+
+		}
 
 	//calculate the OPTIMAL value for the current distribution of O_i based on the integer partitioning of #agents
 	static double calculateOptimalValue(ArrayList<Integer> optimalMemberSize) {
@@ -385,14 +496,14 @@ public class hetero_task_alloc{
 		return w;
 	}
 
-	static void agentCoordinateGeneration(int n, int tasks) {
+	static void agentCoordinateGeneration(int robots, int tasks) {
 
 		//Generation of random points (agent positions) for varying numbers of agents (grid size depends on number of agents):
-		int Agents, i, j, check;
-		Agents = n + tasks;
+		int n, i, j, check;
+		n = robots + tasks;
 		Random rand = new Random();
 
-		for (i = 0; i < Agents; i++)
+		for (i = 0; i < n; i++)
 		{
 			check = 0;
 			Coordinates[i][0]=rand.nextInt(width);
@@ -451,16 +562,15 @@ public class hetero_task_alloc{
 
 		writer.println("/* Objective function */");
 		writer.println("min: ");
-		//create the edges of a bipartite graph
-		for (i = 0; i < tasks; i++)// looping through tasks
+
+		for (i = 0; i < n; i++)
 		{
-			for (j = tasks; j < n; j++)// looping through robots/agents
-			{	
-				
+			for (j = i + 1; j < n; j++)
+			{
 				//AgentDistances[i][j]=Math.sqrt(Math.pow((Coordinates[i][0] - Coordinates[j][0]), 2) + Math.pow((Coordinates[i][1] - Coordinates[j][1]), 2));
 				AgentDistances[i][j]=Math.sqrt(Math.pow((Coordinates[i][0] - Coordinates[j][0]), 2) + Math.pow((Coordinates[i][1] - Coordinates[j][1]), 2));
 				double dist = AgentDistances[i][j];
-				/*
+
 				if (i < tasks && j < tasks) {
 					//AgentDistances[i][j] = 0;
 					EdgeUtility[i][j] = -n * tasks * dist;
@@ -469,8 +579,7 @@ public class hetero_task_alloc{
 					//AgentDistances[i][j] = 0;
 					EdgeUtility[i][j] = calculateEdgeCost(dist);
 				}
-				*/
-				EdgeUtility[i][j] = calculateEdgeCost(dist);
+
 
 				if (EdgeUtility[i][j] >= 0)
 				{
@@ -493,9 +602,9 @@ public class hetero_task_alloc{
 		writer.println("/* Variable Bounds */");
 		//myfile + "/* Variable Bounds */" + endl;
 
-		for (i = 0; i < tasks; i++)// looping through tasks
+		for (i = 0; i < n; i++)
 		{
-			for (j = tasks; j < n; j++)// looping through robots/agents
+			for (j = i + 1; j < n; j++)
 			{
 				//if ((i >= tasks && j < tasks) || (i < tasks && j >= tasks)) {
 				writer.println("0 <= " + "x" + (i + 1) + (j + 1) + " <= 1;");// + endl;
@@ -507,9 +616,9 @@ public class hetero_task_alloc{
 			}
 		}
 
-		for (i = 0; i < tasks; i++)// looping through tasks
+		for (i = 0; i < n; i++)
 		{
-			for (j = tasks; j < n; j++)// looping through robots/agents
+			for (j = i + 1; j < n; j++)
 			{
 				for (k = j + 1; k < n; k++)
 				{
@@ -532,6 +641,121 @@ public class hetero_task_alloc{
 		return File;
 	}
 
+	static String LPSetUp_bipart(int agents, int tasks, int run) {
+		int k, i, j;
+		double NegativeWeightSum = 0;
+		int n = agents + tasks;
+		//int width = n;
+
+
+		//clock_t start, end;
+		//float time = 0.0;
+		//start = clock();
+
+		//vector< vector<float> > AgentCoordinates(n, vector<float>(2));
+		double AgentDistances[][] = new double[n][n];//(n, vector<float>(n));
+		double EdgeUtility[][] = new double[n][n];//(n, vector<float>(n));
+
+
+		String Filename = "LPinput_Tasks" + Integer.toString(tasks) + "Agents" + Integer.toString(agents) + "Run" + Integer.toString(run) + ".lp";
+
+		PrintWriter writer = null;
+		try {
+			writer = new PrintWriter(Filename, "UTF-8");
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (UnsupportedEncodingException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+
+		String LPModelName = "LPresults_Tasks" + Integer.toString(tasks) + "Agents" + Integer.toString(agents) + "Run" + Integer.toString(run);
+
+
+		writer.println("/* Objective function */");
+		writer.println("min: ");
+		//for bipartite graph formulation
+		for (i = 0; i < tasks; i++)// loop through all the tasks
+		{
+			for (j = tasks; j < n; j++)// loop though all the robots
+			{
+				//AgentDistances[i][j]=Math.sqrt(Math.pow((Coordinates[i][0] - Coordinates[j][0]), 2) + Math.pow((Coordinates[i][1] - Coordinates[j][1]), 2));
+				AgentDistances[i][j]=Math.sqrt(Math.pow((Coordinates[i][0] - Coordinates[j][0]), 2) + Math.pow((Coordinates[i][1] - Coordinates[j][1]), 2));
+				double dist = AgentDistances[i][j];
+				/*
+				if (i < tasks && j < tasks) {
+					//AgentDistances[i][j] = 0;
+					EdgeUtility[i][j] = -n * tasks * dist;
+				}
+				else {
+					//AgentDistances[i][j] = 0;
+					EdgeUtility[i][j] = calculateEdgeCost(dist);
+				}
+				*/
+				EdgeUtility[i][j] = calculateEdgeCost(dist);
+				if (EdgeUtility[i][j] >= 0)
+				{
+					if (i == 0 && j == 1) { writer.println(EdgeUtility[i][j] + " x" + (i + 1) + (j + 1));}//myfile + EdgeUtility[i][j] + " x" + i + 1 + j + 1; }
+					else { writer.println(" + " + EdgeUtility[i][j] + " x" + (i + 1) + (j + 1));}//myfile + " + " + EdgeUtility[i][j] + " x" + i + 1 + j + 1; }
+				}
+				else
+				{
+					//myfile + " - " + fabs(EdgeUtility[i][j]) + " x" + i + 1 + j + 1;
+					writer.println(" - " + Math.abs(EdgeUtility[i][j]) + " x" + (i + 1) + (j + 1));
+					NegativeWeightSum = NegativeWeightSum + Math.abs(EdgeUtility[i][j]);
+				}
+			}
+		}
+		writer.println(" + " + NegativeWeightSum + ";" );
+		writer.println("");
+		//myfile + " + " + NegativeWeightSum + ";" + endl + endl;
+
+		//Agent edges, their utilities, and the objective function have now been stored. Constraints are now set.
+		writer.println("/* Variable Bounds */");
+		//myfile + "/* Variable Bounds */" + endl;
+
+		//for bipartite graph formulation
+		for (i = 0; i < tasks; i++)// loop through all the tasks
+		{
+			for (j = tasks; j < n; j++)// loop though all the robots
+			{
+				//if ((i >= tasks && j < tasks) || (i < tasks && j >= tasks)) {
+				writer.println("0 <= " + "x" + (i + 1) + (j + 1) + " <= 1;");// + endl;
+				//}
+				//else
+				//{
+				//myfile + "0 <= " + "x" + i + 1 + j + 1 + " <= 1;" + endl;
+				//}
+			}
+		}
+		
+		/*
+		for (i = 0; i < n; i++)
+		{
+			for (j = i + 1; j < n; j++)
+			{
+				for (k = j + 1; k < n; k++)
+				{
+					writer.println("x" + (i + 1) + (j + 1) + " + x" + (i + 1) + (k + 1) + " - x" + (j + 1) + (k + 1) + " >= 0;");// + endl;
+				}
+				for (k = i + 1; k < j; k++)
+				{
+					writer.println("x" + (i + 1) + (j + 1) + " + x" + (k + 1) + (j + 1) + " - x" + (i + 1) + (k + 1) + " >= 0;");// + endl;
+				}
+				for (k = j + 1; k < n; k++)
+				{
+					writer.println("x" + (i + 1) + (j + 1) + " + x" + (j + 1) + (k + 1) + " - x" + (i + 1) + (k + 1) + " >= 0;");// + endl;
+				}
+			}
+		}
+		*/
+		writer.close();
+		String File = solveLP(Filename, LPModelName);
+		//delete[] name2; delete[] name1;
+		return File;
+	}
 
 	static String solveLP(String Filename2, String LPModelName) {
 		String str = LPModelName+".csv";
@@ -628,11 +852,11 @@ public class hetero_task_alloc{
 	{
 		//srand(NULL);
 		width = 100;
-		for(int agents = 4; agents <=10; agents+=2) {
-			//for(int tasks = 2; tasks <=0.5*agents && tasks <= 10 ; tasks+=2) {
-				int tasks = 2;
+		for(int agents = 10; agents <=100; agents+=10) {// number of robots are varied here
+			for(int tasks = 2; tasks <=0.5*agents && tasks <= 10 ; tasks+=2) {// number of tasks are varied here
+				//int tasks = 2;
 				int n = agents + tasks;
-				for (int run=1;run<=10;run++) {
+				for (int run=1;run<=1;run++) {// number of runs for each setting
 					int maxCoalSize = -1;
 					String outputFile = "region_Task" + Integer.toString(tasks) + "Agents" + Integer.toString(agents) + "Run" + Integer.toString(run) + ".txt";
 					PrintWriter writer = null;
@@ -658,8 +882,8 @@ public class hetero_task_alloc{
 					agentCoordinateGeneration(agents, tasks);
 					double startTime = System.currentTimeMillis();
 
-					String Filename = LPSetUp(agents, tasks, run);
-					extractLPPartitions(agents, tasks, Filename);// data is put in a vector called costPartitions
+					String Filename = LPSetUp_bipart(agents, tasks, run);// calling the methods for the bipartite graph
+					extractLPPartitions_bipart(agents, tasks, Filename);// data is put in a vector called costPartitions
 
 					double currTime = System.currentTimeMillis();
 					double timePassed = currTime - startTime;
@@ -724,7 +948,7 @@ public class hetero_task_alloc{
 					}
 					bfp_writer.close();
 					*/
-				//}
+				}
 			}
 		}
 		System.out.println("We are DONE with the code including the brute-force methods!");
